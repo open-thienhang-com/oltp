@@ -1,0 +1,77 @@
+version: "3.8"
+
+services:
+  clickhouse:
+    image: docker.io/bitnami/clickhouse:25
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+      - CLICKHOUSE_ADMIN_USER=admin
+      - CLICKHOUSE_ADMIN_PASSWORD=admin
+    ports:
+      - "8123:8123" # HTTP Interface
+      - "9000:9000" # Native TCP Interface
+    volumes:
+      - clickhouse_data:/bitnami/clickhouse
+
+  dremio:
+    image: dremio/dremio-oss:latest
+    ports:
+      - "9047:9047" # Dremio Web UI
+      - "31010:31010" # Dremio JDBC
+    environment:
+      - DREMIO_DATADIR=/opt/dremio/data
+      - DREMIO_LOGDIR=/opt/dremio/log
+      - DREMIO_ADMIN_USERNAME=admin
+      - DREMIO_ADMIN_PASSWORD=admin
+      - DREMIO_DISABLE_SIGN_UP=true
+      - DREMIO_S3_ENABLED=true
+      - DREMIO_S3_ACCESS_KEY=your-s3-access-key
+      - DREMIO_S3_SECRET_KEY=your-s3-secret-key
+      - DREMIO_S3_BUCKET=your-s3-bucket-name
+      - DREMIO_ICEBERG_ENABLED=true
+      - DREMIO_METADATA_STORAGE_TYPE=postgresql
+      - DREMIO_METADATA_STORAGE_URI=jdbc:postgresql://postgres:5432/dremio
+      - DREMIO_METADATA_STORAGE_USERNAME=dremio
+      - DREMIO_METADATA_STORAGE_PASSWORD=dremio
+    volumes:
+      - dremio_data:/opt/dremio/data
+      - dremio_logs:/opt/dremio/log
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:latest
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=trino
+    ports:
+      - "5432:5432" # PostgreSQL Port
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ch-ui:
+    image: ghcr.io/caioricciuti/ch-ui:latest
+    restart: always
+    ports:
+      - "5521:5521"
+    environment:
+      VITE_CLICKHOUSE_URL: "http://localhost:8123"
+      VITE_CLICKHOUSE_USER: "admin"
+      VITE_CLICKHOUSE_PASS: "admin"
+    depends_on:
+      - clickhouse
+
+volumes:
+  clickhouse_data:
+    driver: local
+  dremio_data:
+    driver: local
+  dremio_logs:
+    driver: local
+  postgres_data:
+    driver: local
+
+networks:
+  trino-net:
+    driver: bridge
